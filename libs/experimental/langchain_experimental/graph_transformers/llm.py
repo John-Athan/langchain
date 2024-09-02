@@ -723,7 +723,7 @@ class LLMGraphTransformer:
             self.chain = prompt | structured_llm
 
     def process_response(
-        self, document: Document, config: Optional[RunnableConfig] = None
+            self, document: Document, config: Optional[RunnableConfig] = None
     ) -> GraphDocument:
         """
         Processes a single document, transforming it into a graph document using
@@ -740,20 +740,14 @@ class LLMGraphTransformer:
             if not isinstance(raw_schema, str):
                 raw_schema = raw_schema.content
             parsed_json = self.json_repair.loads(raw_schema)
-            if isinstance(parsed_json, dict):
-                parsed_json = [parsed_json]
-            for rel in parsed_json:
-                # Nodes need to be deduplicated using a set
-                nodes_set.add((rel["head"], rel["head_type"]))
-                nodes_set.add((rel["tail"], rel["tail_type"]))
 
-                source_node = Node(id=rel["head"], type=rel["head_type"])
-                target_node = Node(id=rel["tail"], type=rel["tail_type"])
-                relationships.append(
-                    Relationship(
-                        source=source_node, target=target_node, type=rel["relation"]
-                    )
-                )
+            for rel in parsed_json:
+                if isinstance(rel, list):
+                    for rel2 in rel:
+                        self.add_rel(nodes_set, rel2, relationships)
+                else:
+                    self.add_rel(nodes_set, rel, relationships)
+
             # Create nodes list
             nodes = [Node(id=el[0], type=el[1]) for el in list(nodes_set)]
 
@@ -768,14 +762,14 @@ class LLMGraphTransformer:
                     rel
                     for rel in relationships
                     if rel.source.type.lower() in lower_allowed_nodes
-                    and rel.target.type.lower() in lower_allowed_nodes
+                       and rel.target.type.lower() in lower_allowed_nodes
                 ]
             if self.allowed_relationships:
                 relationships = [
                     rel
                     for rel in relationships
                     if rel.type.lower()
-                    in [el.lower() for el in self.allowed_relationships]
+                       in [el.lower() for el in self.allowed_relationships]
                 ]
 
         return GraphDocument(nodes=nodes, relationships=relationships, source=document)
